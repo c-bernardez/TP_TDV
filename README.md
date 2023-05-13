@@ -1,10 +1,10 @@
 # TP_TDV
 
 **1. (1 punto) Estrategia FCFS.** Implementar la solución que se corresponde con la estrategia
-FCFS. Para ello, completar la clase {\tt GreedySolver}, que toma una instancia y resuelve el
+FCFS. Para ello, completar la clase GreedySolver, que toma una instancia y resuelve el
 problema con la estrategia FCFS. Esta clase debe guardar la información respecto al valor
 de la función objetivo, tiempo de resolución, y la solución a implementar usando la clase
-{\tt TaxiAssignmentSolution}, ya implementada.
+TaxiAssignmentSolution, ya implementada.
 
 **2. (1 puntos) Modelo para estrategia de batching.** Modelar el problema usando grafos,
 incluyendo todos los parámetros y definiciones necesarias. Justificar la elección del mismo
@@ -19,10 +19,7 @@ implemtanción serán dados más adelante.
 el modelo propuesto respecto al de la solución actual de la compañía. En cada caso, medir la
 mejora porcentual obtenida. Sean zb y zg el valor de la función objetivo de una solución del
 modelo para el batching y el de FCFS, respectivamente. definimos la mejora relativa como
-%gap =
-zg − zb
-zb
-.
+$$ %gap = \frac{z_g - z_b}{z_b}$$
 En caso de considerarlo conveniente, pueden agregar otras métricas complementarias (respecto
 al método o a las soluciones) para el análisis de los resultados.
 Sugerencia: se recomienda sistematizar la realización de experimentos, idealmente definiendo
