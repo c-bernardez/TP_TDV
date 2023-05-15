@@ -31,7 +31,7 @@ void GreedySolver::solve() {
         }
         solucion.assign(taxi, j);
     }
-
+    
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     this->_solution_time = static_cast<double>(duration.count()); //guardamos el tiempo de ejecucion para la instancia
