@@ -16,5 +16,14 @@ int main(int argc, char** argv) {
 
     solver.solve();
 
+    solution = solver.getSolution();
+
+    auto time = solver.getSolutionTime();
+
+    //chequeos
+    
+    std::cout << "tiempo de ejecución: " << time << std::endl;
+    std::cout << "objective value: " << solver.getObjectiveValue() << std::endl;
+
     return 0;
 }
