@@ -16,15 +16,16 @@ void GreedySolver::setInstance(TaxiAssignmentInstance &instance) {
 }
 
 void GreedySolver::solve() {
-    auto start = std::chrono::high_resolution_clock::now(); //usamos la librería <chrono> para medir el tiempo de ejecución para el método solve
     TaxiAssignmentSolution solucion((this->_instance).n); //inicializamos una solucion a partir del n de la instancia de TaxiAssignmentSolution
     std::vector<std::vector<double>> distancias = (this->_instance).dist; //guardamos la matriz de distancias de la instancia en una variable por comodidad
+    auto start = std::chrono::high_resolution_clock::now(); //usamos la librería <chrono> para medir el tiempo de ejecución para el método solve
+    
     for(int j=0; j<distancias.size(); j++){ 
         //para cada pasajero j encontramos el taxi i más cercano al pasajero y que no se encuentre ya asignado
         double minimo = INT_MAX;
         int taxi = 0;
-        for(int i=0; i<distancias.size(); i++){
-            if(!solucion.isTaxiAssigned(i) && distancias[j][i]<minimo){ 
+        for(int i=0; i<distancias[j].size(); i++){
+            if(!solucion.isTaxiAssigned(i) && distancias[i][j]<minimo){ 
                 minimo = distancias[i][j];
                 taxi = i;
             }
