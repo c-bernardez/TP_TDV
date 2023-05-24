@@ -47,7 +47,6 @@ void BatchingSolver::solve() {
             x=0;
         }
     }
-    
 
     //capacities = capacidades, size = n*n
     //en nuestro modelo, la capacidad de cada arista es 1. si interpretamos al flujo como la cantidad de taxis, queda claro que solo uno a la vez pude ir a buscar a un pasajero
@@ -82,7 +81,7 @@ void BatchingSolver::solve() {
             start_nodes[i], end_nodes[i], capacities[i], unit_costs[i]);
         if (arc != i) LOG(FATAL) << "Internal error";
     }
-
+    
     // Add node supplies.
     for (int i = 0; i < supplies.size(); ++i) {
         min_cost_flow.SetNodeSupply(i, supplies[i]);
@@ -96,9 +95,9 @@ void BatchingSolver::solve() {
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     this->_solution_time = static_cast<double>(duration.count());
 
-    this ->_objective_value = static_cast<double>(min_cost_flow.OptimalCost())/n; //Lo guardamos en el valor objetivo
     
     if (status == operations_research::MinCostFlow::OPTIMAL) {
+        this ->_objective_value = static_cast<double>(min_cost_flow.OptimalCost())/n; //Lo guardamos en el valor objetivo
         // LOG(INFO) << std::endl << "Minimum cost flow: " << static_cast<double>(min_cost_flow.OptimalCost())/n;
         // LOG(INFO) << "";
         // LOG(INFO) << " Arc   Flow / Capacity  Cost";
@@ -107,19 +106,21 @@ void BatchingSolver::solve() {
         // LOG(INFO) << min_cost_flow.Tail(i) << " -> " << min_cost_flow.Head(i)
         //             << "  " << min_cost_flow.Flow(i) << "  / "
         //             << min_cost_flow.Capacity(i) << "       " << cost;
-        //}
-        for (std::size_t i = 0; i < min_cost_flow.NumArcs(); ++i) {
-        double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/n;
-        if(cost!=0){
-            solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i));
+        // }
+        for (int i = 0; i < min_cost_flow.NumArcs(); ++i) {
+            double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/n;
+            if(cost!=0){
+                solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i)-n);
+            }
         }
-        }
+        
     } else {
         LOG(INFO) << "Solving the min cost flow problem failed. Solver status: "
                 << status;
     }
-}
 
+    this ->_solution = solucion;
+}
 
 
 double BatchingSolver::getObjectiveValue() const {
