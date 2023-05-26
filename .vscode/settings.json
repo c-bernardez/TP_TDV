@@ -90,5 +90,6 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "cfenv": "cpp"
-    }
+    },
+    // "r.plot.useHttpgd": true
 }
