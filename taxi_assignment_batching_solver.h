@@ -17,6 +17,7 @@ class BatchingSolver
 
         void setInstance(TaxiAssignmentInstance &instance);
         void solve();
+        void solve_alternativa(); //agregamos para el ejerciico 7
 
         double getObjectiveValue() const;
         TaxiAssignmentSolution getSolution() const;
