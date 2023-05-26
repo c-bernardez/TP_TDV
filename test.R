@@ -429,3 +429,5 @@ type = "l", lwd = 1, col = colors[3])
 points(p_valores_dmax, col = colors[3], cex = 2)
 
 par(mfrow = c(1, 1))
+
+#falta
