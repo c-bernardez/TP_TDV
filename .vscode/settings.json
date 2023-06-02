@@ -89,7 +89,9 @@
         "utility": "cpp",
         "stop_token": "cpp",
         "thread": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "*.rmd": "markdown",
+        "filesystem": "cpp"
     },
     // "r.plot.useHttpgd": true
 }
