@@ -158,7 +158,21 @@ void BatchingSolver::solve_alternativa() {
     x=0;
     for(int64_t i=0; i<distancias.size(); i++){
         for(int64_t j=0; j<distancias[i].size(); j++){
-            unit_costs[x] = (distancias[i][j] / (this->_instance).pax_trip_dist[j]) * 1000; 
+
+            double d_ij = distancias[i][j];
+            double d_t = (this->_instance).pax_trip_dist[j];
+            double ratio = d_ij/d_t;
+
+            if(ratio == std::numeric_limits<double>::infinity()){
+                d_t = d_ij; //en caso de que el ratio se vaya a infinito porque d_t es casi cero, decidimos que d_t = d_ij para que el ratio sea 1 y no sea ni eficiente ni ineficiente
+                ratio = 1;
+            }
+            else if(std::abs(d_ij) < 1e-10){
+                d_ij=0.01; //arreglo que agregamos al ver que dos archivos a veces no tenian solucion (solver status 6 BAD COST RANGE) y vimos que coincidia que esos archivos tenian d_ij en cero o muy cerca
+                d_t=d_ij;
+                ratio=1;
+            }
+            unit_costs[x] = ratio * 1000; 
             //consideramos al costo como un ratio entre la distancia recorrida hasta el pasajero y la distancia del viaje en sí. Si el ratio es menor a 1, la distancia recorrida hasta el pasajero es menor que la del viaje total, y por ende es más "util" para el taxista. Así, seguimos buscando minimizar costos, solo que ahora minimizamos los ratios.
             //lo multiplicamos por 1000 para pasarlo a entero sin que algun costo nos quede en 0 la redondear
             x++;
@@ -204,7 +218,7 @@ void BatchingSolver::solve_alternativa() {
             //dividimos por el 1000 multiplicado anteriormente para obtener los costos verdaderos (los ratios son doubles)
             if(cost!=0){
                 solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i)-n); //quitamos el n
-                this ->_objective_value += cost * (this->_instance).pax_trip_dist[min_cost_flow.Head(i)-n]; //habiendo calculado los costos como dij/dj, podemos recuperar los dij que nos interesan para el valor del a funcion objetivo si hacemos costo*dj (dj es la distancia del viaje del pasajero j, una vez sea recogido por el taxi)
+                //this ->_objective_value += cost * (this->_instance).pax_trip_dist[min_cost_flow.Head(i)-n]; //habiendo calculado los costos como dij/dj, podemos recuperar los dij que nos interesan para el valor del a funcion objetivo si hacemos costo*dj (dj es la distancia del viaje del pasajero j, una vez sea recogido por el taxi)
             }
         }
         
@@ -215,7 +229,11 @@ void BatchingSolver::solve_alternativa() {
     }
 
     this ->_solution = solucion;
-    this->_objective_value = std::trunc(this->_objective_value*10)/10; //truncamos el valor de la funcion objetivo a un lugar decimal
+    //this->_objective_value = std::trunc(this->_objective_value*10)/10; //truncamos el valor de la funcion objetivo a un lugar decimal
+    for(int i=0; i<(this->_instance).n; i++){
+        int j = (this->_solution).getAssignedPax(i);
+        this->_objective_value += (this->_instance).dist[i][j];
+    }
 }
 
 
