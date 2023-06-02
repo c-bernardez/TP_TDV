@@ -1,0 +1,433 @@
+---
+title: "TP1: Servicios de movilidad on-demand en tiempo real: estrategias y algoritmos"
+author: "Bernardez Camila, Giménez Costa María Agustina, Oliva Micaela"
+date: "2023-05-31"
+output: pdf_document
+fig_width: 6
+fig_height: 4
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.width=6, fig.height=4) 
+```
+
+```{r}
+library(wesanderson)
+library(RColorBrewer)
+n <- 10
+
+h1 <- hcl.colors(n, palette = "Dynamic")
+h2 <- hcl.colors(n, palette = "Earth")
+h3 <- hcl.colors(n, palette = "Berlin")
+h4 <- hcl.colors(n, palette = "Fall")
+h5 <- hcl.colors(n, palette = "Sunset")
+
+```
+
+```{r}
+csv <- read.csv("gap.csv", header = TRUE, sep = ",")
+funciones <- csv[2:7]
+gap <- csv[8:10]
+
+small <- gap[1:10, ]
+medium <- gap[11:20, ]
+large <- gap[21:30, ]
+xl <- gap[31:40, ]
+
+```
+
+
+```{r}
+colors <- rev(wes_palette("Zissou1", 2, type = "continuous"))
+```
+
+# Introducción al problema
+
+En este trabajo nos centramos en resolver el problema de asignación de vehículos en una agencia de taxis, es decir, buscamos encontrar un modelo de decisión que nos permita saber que conductor debe pasar a buscar a cada pasajero. 
+
+En principio, tomamos como métrica de éxito de una asignación la minimización de la distancia recorrida por los conductores hasta la ubicación de su pasajero asignado.
+
+Inicialmente contamos con un modelo intuitivo y fácil de implementar llamado $\texttt{GreedySolver}$. Es una heurística basada en FCFS, que asigna el taxi más cercano a los pasajeros según su orden de llegada a la cola de espera. Sin embargo, al ser una heurística, no tenemos garantía de que encuentre una solución óptima al problema planteado. Por eso, a continuación buscaremos e implementaremos un modelo que tome una decisión a nivel global, lo que nos garantizará que la distancia recorrida por los conductores hasta sus pasajeros sea mínima.
+
+# Descripción del modelo y la decisión
+
+Modelamos el problema de asignación con un grafo $G = (N,A)$ de $n^2$ nodos, donde $n$ es la cantidad de conductores disponibles (y de pasajeros que buscan viajar, ya que asumimos que la cantidad de ambos es simétrica).
+
+Planteamos un grafo bipartito dirigido, donde los nodos de la partición $V_1$ representan a los taxis, y los de la partición $V_2$, a los pasajeros. Para todo taxi $i$ existe un arco $ij \in A$ con un peso asignado según la función $d: A \rightarrow \mathbb{R}$. Los pesos o costos de los arcos son la distancia (medida en kilómetros) que debe recorrer el taxi $i$ hasta su pasajero asignado $j$.
+
+Con este modelo, queremos encontrar el flujo desde los taxis hacia los pasajeros que minimice la suma total de los costos (es decir, de la distancia total a recorrer). En otras palabras, estamos planteando un problema de flujo de costo mínimo. Para este planteo nos falta considerar los imbalances $b_i$ y las capacidades $u_{ij}$: 
+
+  * Los imbalances $b_i$ de cada nodo $i \in N$ representan la cantidad de flujo que genera o absorbe cada nodo. Consideramos $b_i = 1$ para cada taxi porque "generan" una unidad de flujo cada uno, y $b_i = - 1$ para los pasajeros porque reciben el flujo generado por los taxis. Al haber $n$ taxis y $n$ pasajeros nos aseguramos que la suma de imbalances de 0. 
+  * En cuanto a la capacidad $u_{ij}$ de cada arco $ij$, cualquier capacidad mayor a uno nos sirve, ya que debe permitir que pase todo el flujo generado por los taxis. Por conveniencia y simplicidad, elegimos utilizar $u_{ij} = 1$ para todos los arcos.
+
+El modelo de flujo de costo mínimo no toma decisiones *golosas* como el modelo anterior, sino que explora las distintas soluciones posibles hasta encontrar aquella que minimiza el costo. En este caso, el costo es la distancia recorrida desde los taxis hasta los pasajeros, por lo que esta minimización nos devuelve nuestra función objetivo.
+
+
+![](/Users/macbookpro/Desktop/TP_TDV/grafo.png)
+
+
+
+*Consideraciones: podríamos también incluir un nodo s fuente, y un nodo de destino t. Con este cambio deberíamos fijar el imbalance de s en $n$, el de t en $-n$, y el del resto de los nodos en 0, ya que ahora no son los taxis los que generan el flujo, ni los pasajeros los que lo reciben. Los costos de los arcos $si$ y $jt$ serían 0 (siendo $i$ los nodos de los taxis y $j$ los de los pasajeros), mientras que los costos del resto de los arcos se mantendrían. La capacidad de $si$ y $jt$ deben ser 1, para que no se envíe más de una unidad de flujo a cada taxi, ni más de una desde los pasajeros. Decidimos no tomar esta implementación porque con los imbalances de los taxis y pasajeros no nos pareció necesario para representar apropiadamente el problema.*
+
+# Consideraciones generales respecto a la implementación del modelo, incluyendo dificultades que encontramos
+
+Para implementar el modelo utilizamos la librería $\texttt{graph}$ del software OR-Tools, específicamente el archivo de $\texttt{min cost flow.h}$.
+
+Para ello debimos computar nuestros nodos junto a sus imbalances, y los arcos junto a sus costos y capacidades. 
+
+A pesar de tener $n$ taxis numerados de la misma manera que los $n$ pasajeros, para que la función anduviera correctamente fue necesario cambiar el número de los pasajeros, para que no se confundieran con los taxis (podríamos haber cambiado los taxis, era indistinto). Esto lo hicimos sumándole $n$ a todos los nodos para crear el vector de nodos pasajeros $\texttt{end nodes}$. Luego era importante recordar restarle ese $n$ para poder realizar la asignación.
+
+También debimos multiplicar los costos por 10, ya que el vector que los almacena $\texttt{unit cost}$ es de tipo $\texttt{vector<int64 t>}$, y nuestras distancias estaban en formato $\texttt{double}$ redondeados a un decimal. Luego, una vez computada la función objetivo, volvimos a dividirla por 10 para obtener el valor real. Con este cambio, nuestra función de costos pasa a ser $d: A \rightarrow \mathbb{Z}$.
+
+Como resultado inicial observamos una reducción en el valor de la función objetivo con el archivo $\texttt{small 1}$, de 42.4 a 32.4. También observamos un aumento en el tiempo de ejecución (como este es variable no incluimos los valores exactos en este informe)
+
+# Resumen de resultados obtenidos en la experimentación
+
+Durante la experimentación consideramos tres métricas de éxito:
+
+  * La minimización de la función objetivo (distancia recorrida hasta los pasajeros)
+  * La minimización del tiempo que se tarda en obtener la función objetivo
+  * La minimización de la distancia máxima a recorrer por un taxi de la asignación 
+
+## Minimización de la función objetivo
+
+
+Como esperábamos, en promedio el método propuesto logra valores menores para la función objetivo: tiene una mejora relativa del 75% con respecto al *greedy*, y una mejora absoluta (representada en el gráfico) de 666 km de diferencia para la función objetivo. Esto se debe a que, como mencionamos antes, el método FCFS es una heurística que elige la mejor opción posible a cada paso, pero no tiene una visión global de las decisiones posibles, cómo si lo tiene el modelo de flujo de costo mínimo.\
+
+```{r,fig.align = "center"}
+#grafico el valor de las metricas estudiadas con ambos metodos, a medida aumenta
+#el tamanio de la entrada
+#par(mfrow = c(3, 1))
+options(repr.plot.width = 3, repr.plot.height = 1)
+plot(funciones$f_obj.greedy, type = "l",
+     col = colors[1], lwd = "2",
+     xlab = "número de archivo",
+     ylab = "valor (en km)",
+     main = "Valor de la función objetivo por cada archivo", cex.lab=0.8, cex.axis=0.9, cex.main = 1.1)
+lines(funciones$f_obj.mcf, col = colors[2], lwd = "2")
+legend("topleft", legend = c("greedy", "batching"), col = colors, lwd = 2,cex=0.7)
+```
+
+Sin embargo, vemos que cuando se tienen pocos vehículos/pasajeros (como sucede en los archivos *small* que tienen $n$ = 10) la diferencia no es muy significativa. Es decir, es una mejora relativa notoria, pero en términos prácticos la distancia a recorrer con el segundo modelo es apenas unos kilómetros menor que con el modelo FCFS cuando hay pocos taxis y pasajeros.\
+
+
+
+```{r,fig.align = "center"}
+
+small_1 <- csv[1:10, ]
+medium_1 <- csv[11:20, ]
+large_1 <- csv[21:30, ]
+xl_1 <- csv[31:40, ]
+
+Tamanios <- c("small", "medium", "large", "xl")
+Promedios_greedy <- c(mean(small_1$f_obj.greedy), 
+               mean(medium_1$f_obj.greedy), 
+               mean(large_1$f_obj.greedy), 
+               mean(xl_1$f_obj.greedy))
+
+fobj_greedy_prom <- data.frame(Tamanios, Promedios_greedy)
+fobj_greedy_prom <- fobj_greedy_prom[c(1:4),]
+
+Promedios_mcf <- c(mean(small_1$f_obj.mcf),
+                   mean(medium_1$f_obj.mcf),
+                   mean(large_1$f_obj.mcf),
+                   mean(xl_1$f_obj.mcf))
+
+fobj_mcf_prom <- data.frame(Tamanios, Promedios_mcf)
+barplot_data <- rbind(fobj_greedy_prom$Promedios_greedy, fobj_mcf_prom$Promedios_mcf)
+
+# Set the height of the plotting device
+options(repr.plot.height = 5)
+
+barplot(barplot_data, beside = TRUE, col = c(colors[1], colors[2]),
+        names.arg = Tamanios, legend.text = TRUE,
+        xlab = "tamaño de instancia", ylab = "valor promedio (en km)",
+        main = "Valor promedio de la función objetivo",
+        ylim = c(0, 1.2 * max(barplot_data)), cex.lab=0.8, cex.axis=0.9, cex.main = 1.1)
+
+legend("topleft", legend = c("greedy", "batching"), col = colors[1:2], lwd = 2, cex=0.7)
+
+```
+
+A continuación se puede comparar la evolución de la mejora relativa y absoluta para el valor de la función objetivo.\
+
+```{r}
+library(knitr)
+
+mejora_relativa_f_s <- round(mean(small$z_f_obj)*100,1)
+mejora_abs_f_s <- round(mean(csv[1:10, ]$f_obj.greedy - csv[1:10, ]$f_obj.mcf),1)
+
+
+mejora_relativa_f_m <- round(mean(medium$z_f_obj)*100,1)
+mejora_abs_f_m <- round(mean(csv[11:20, ]$f_obj.greedy - csv[11:20, ]$f_obj.mcf),1)
+
+mejora_relativa_f_l <- round(mean(large$z_f_obj)*100,1)
+mejora_abs_f_l <- round(mean(csv[21:30, ]$f_obj.greedy - csv[21:30, ]$f_obj.mcf),1)
+
+mejora_relativa_f_xl <- round(mean(xl$z_f_obj)*100,1)
+mejora_abs_f_xl <- round(mean(csv[31:40, ]$f_obj.greedy - csv[31:40, ]$f_obj.mcf),1)
+
+mejora_relativa_f <- round(mean(csv$z_f_obj)*100,1)
+mejora_abs_f <- round(mean(csv$f_obj.greedy - csv$f_obj.mcf),1)
+
+
+# Create a data frame with three columns and six rows
+data <- data.frame(
+  tamano_instancia = c("", "small", "medium", "large", "xl", "promedio"),
+  mejora_relativa = c(1, mejora_relativa_f_s, mejora_relativa_f_m, mejora_relativa_f_l, mejora_relativa_f_xl, mejora_relativa_f),
+  mejora_absoluta = c(1, mejora_abs_f_s, mejora_abs_f_m,mejora_abs_f_l,mejora_abs_f_xl,mejora_abs_f)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
+
+# Use knitr to generate a table
+kable(data, row.names = FALSE)
+
+
+```
+
+
+## Minimización del tiempo de cálculo
+El $\texttt{GreedySolver}$ es notoriamente más rápido que el $\texttt{BatchingSolver}$ para computar el valor de la función objetivo, lo cuál es lógico si recordamos que el primero solo considera la mejor solución posible *en el momento*, mientras que el segundo explora todas antes de seleccionar la mejor solución *global*.\
+
+```{r,fig.align = "center"}
+Tiempos_greedy <- c(mean(small_1$tiempo.greedy), 
+               mean(medium_1$tiempo.greedy), 
+               mean(large_1$tiempo.greedy), 
+               mean(xl_1$tiempo.greedy))
+
+tiempos_greedy_prom <- data.frame(Tamanios, Tiempos_greedy)
+
+Tiempos_mcf <- c(mean(small_1$tiempo.mcf),
+                   mean(medium_1$tiempo.mcf),
+                   mean(large_1$tiempo.mcf),
+                   mean(xl_1$tiempo.mcf))
+
+tiempos_mcf_prom <- data.frame(Tamanios, Tiempos_mcf)
+barplot_data_tiempos <- rbind(tiempos_greedy_prom$Tiempos_greedy/1000000, tiempos_mcf_prom$Tiempos_mcf/1000000)
+
+# Set the height of the plotting device
+options(repr.plot.height = 5)
+
+barplot(barplot_data_tiempos, beside = TRUE, col = c(colors[1], colors[2]),
+        names.arg = Tamanios, legend.text = TRUE,
+        xlab = "tamaño de instancia", ylab = "tiempo promedio de ejecución (segundos)",
+        main = "Promedio tiempo de ejecución con ambos metodos",
+        ylim = c(0, 1.2 * max(barplot_data_tiempos)), cex.lab=0.8, cex.axis=0.9, cex.main = 1.1)
+
+legend("topleft", legend = c("greedy", "batching"), col = colors[1:2], lwd = 2, cex=0.7)
+
+```
+
+
+En promedio, el método basado en el flujo de costo mínimo es 1838% peor (o más lento) que el método FCFS (su mejora relativa es negativa).
+
+Sin embargo, incluso con los *batchings* más grandes que buscan asignar 1500 taxis a 1500 pasajeros, el tiempo promedio en nuestra experimentación fue de $120 000$ microsegundos, o $0.12$ segundos. A efectos prácticos, esta diferencia es irrelevante para los usuarios (siempre asumiento que la construcción de la instancia no demore demasiado, es decir, que no haya que esperar a que se conecten más conductores o pasajeros)\ 
+
+Por ende, concluimos que a pesar de que el modelo de flujo de costo mínimo empeora mucho (absoluta y relativamente) en comparación al modelo FCFS, no es una diferencia relevante en la vida real.\
+
+```{r}
+mejora_relativa_t <- round(mean(csv$z_tiempo)*100,1)
+mejora_abs_t <- round(mean(csv$tiempo.greedy - csv$tiempo.mcf),1)
+
+mejora_relativa_t_s <- round(mean(small$z_tiempo)*100,1)
+mejora_abs_t_s <- round(mean(csv[1:10, ]$tiempo.greedy - csv[1:10, ]$tiempo.mcf),1)
+
+
+mejora_relativa_t_m <- round(mean(medium$z_tiempo)*100,1)
+mejora_abs_t_m <- round(mean(csv[11:20, ]$tiempo.greedy - csv[11:20, ]$tiempo.mcf),1)
+
+mejora_relativa_t_l <- round(mean(large$z_tiempo)*100,1)
+mejora_abs_t_l <- round(mean(csv[21:30, ]$tiempo.greedy - csv[21:30, ]$tiempo.mcf),1)
+
+mejora_relativa_t_xl <- round(mean(xl$z_tiempo)*100,1)
+mejora_abs_t_xl <- round(mean(csv[31:40, ]$tiempo.greedy - csv[31:40, ]$tiempo.mcf),1)
+
+
+
+# Create a data frame with three columns and six rows
+data <- data.frame(
+  tamano_instancia = c("", "small", "medium", "large", "xl", "promedio"),
+  mejora_relativa = c(1, mejora_relativa_t_s, mejora_relativa_t_m, mejora_relativa_t_l, mejora_relativa_t_xl, mejora_relativa_t),
+  mejora_absoluta = c(1, mejora_abs_t_s, mejora_abs_t_m,mejora_abs_t_l,mejora_abs_t_xl,mejora_abs_t)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
+
+# Use knitr to generate a table
+kable(data, row.names = FALSE)
+```
+
+## Minimización de la distancia máxima
+Teníamos la hipótesis de que el modelo propuesto, a pesar de minimizar la distancia total a recorrer por los conductores hasta sus pasajeros asignados, podría derivar en que para uno o algunos taxis, la distancia fuera significativamente mayor que con el modelo actualmente en uso.\ 
+
+Por eso computamos como tercer métrica a la mayor distancia recorrrida por un taxi de la asignación con ambos métodos. Sin embargo, como se ve en el gráfico, resultó que en general sucede lo contrario.\
+
+
+```{r,fig.align = "center"}
+par(mfrow = c(1, 2))
+par(mar = c(2, 2, 2, 2) + 0.1)
+par(cex.main = 0.8)
+boxplot(funciones$dist_max.greedy, main="Distancia máxima con greedy", ylim=c(3,28), col=colors[1], cex.lab=0.8, cex.axis=0.9, cex.main = 0.9)
+boxplot(funciones$dist_max.mcf, main="Distancia máxima con batching", ylim=c(3,28), col=colors[2], cex.lab=0.8, cex.axis=0.9, cex.main = 0.9)
+par(mfrow = c(1, 1))
+```
+
+
+Veamos la mejora relativa y absoluta del batching en relación a esta métrica:\
+
+
+```{r}
+  
+mejora_relativa_d <- round(mean(csv$z_d_max)*100, 1)
+mejora_abs_d <- round(mean(csv$dist_max.greedy - csv$dist_max.mcf),1)
+
+mejora_relativa_d_s <- round(mean(small$z_d_max)*100,1)
+mejora_abs_d_s <- round(mean(csv[1:10, ]$dist_max.greedy - csv[1:10, ]$dist_max.mcf),1)
+
+mejora_relativa_d_m <- round(mean(medium$z_d_max)*100,1)
+mejora_abs_d_m <- round(mean(csv[11:20, ]$dist_max.greedy - csv[11:20, ]$dist_max.mcf),1)
+
+mejora_relativa_d_l <- round(mean(large$z_d_max)*100,1)
+mejora_abs_d_l <- round(mean(csv[21:30, ]$dist_max.greedy - csv[21:30, ]$dist_max.mcf),1)
+
+mejora_relativa_d_xl <- round(mean(xl$z_d_max)*100,1)
+mejora_abs_d_xl <- round(mean(csv[31:40, ]$dist_max.greedy - csv[31:40, ]$dist_max.mcf),1)
+
+
+
+# Create a data frame with three columns and six rows
+data <- data.frame(
+  tamano_instancia = c("", "small", "medium", "large", "xl", "promedio"),
+  mejora_relativa = c(1, mejora_relativa_d_s, mejora_relativa_d_m, mejora_relativa_d_l, mejora_relativa_d_xl, mejora_relativa_d),
+  mejora_absoluta = c(1, mejora_abs_d_s, mejora_abs_d_m,mejora_abs_d_l,mejora_abs_d_xl,mejora_abs_d)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
+
+# Use knitr to generate a table
+kable(data, row.names = FALSE)
+```
+
+# Conclusiones, posibles mejoras y observaciones adicionales que consideren pertinentes
+
+En base a las métricas evaluadas, concluimos que si buscamos minimizar la distancia total, el segundo método es decididamente mejor, en especial si tenemos una cantidad de vehículos y pasajeros más grande. Por extensión, también es mejor opción si se quiere minimizar la distancia máxima recorrida por un conductor de la asignación.
+
+En cuanto al tiempo, si bien dijimos que la diferencia es notable en términos puramente numéricos, no creemos que sea relevante a la hora de elegir qué método emplear, ya que no es una diferencia que vaya a notar el usuario.
+
+**Otras consideraciones: 'pérdida de tiempo' por viajes cortos**
+
+Nuestro modelo propuesto cuenta con ciertas limitaciones. En particular, que muchas veces los conductores deben recorrer distancias muy largas hasta sus pasajeros asignados para luego realizar un viaje muy corto. La sensación es que estos viajes son muy costos (en tiempo o en costo específico). Para analizar si esta queja era válida, analizamos cuántos viajes ineficientes se realizan en promedio con nuestro modelo de *batching*.
+
+Consideramos que un viaje es 'eficiente' si la distancia del viaje es *al menos* tan larga como la distancia que el conductor tiene que recorrer para recoger a su pasajero, es decir, si $d_{ij} \leq d_{t}$. O lo que es lo mismo, si el ratio $\frac{d_{ij}}{d_t} \leq 1$. ($d_{ij}$ es la distancia desde el taxi $i$ hasta el pasajero $j$, y $d_t$ es la distancia del viaje en sí mismo)
+
+```{r,fig.align = "center", fig.height=3, fig.width=4}
+par(mar = c(2, 2, 2, 2) + 0.1)
+colors2 <- c(h1[1], h1[4])
+ineficiencia <- sum(57.8, 38.0, 37.7, 35.54)/4
+eficiencia <- 100-ineficiencia
+labels <- c("ineficiencia = 42.26%", "eficiencia = 57.74%")
+pie(rbind(ineficiencia,eficiencia), labels=labels, col=c(h4[10], h3[1]), main="Porcentaje de viajes eficientes e ineficientes", cex.lab=0.8, cex.axis=0.5, cex.main = 0.9)
+```
+
+Como evidencia el gráfico, con el modelo actual hay una cantidad muy elevada de viajes que no resultan eficientes. También notamos que el tamaño del *batching* no es tan relevante, ya que para cada tamaño de instancia $n$ evaluadas el porcentaje de viajes ineficientes (ratios mayores a 1) son $\%_{10} = 57.8$, $\%_{100} = 38.0$, $\%_{250} = 37.7$ y $\%_{1500} = 35.54$. El cambio más notorio se da cuando agrandamos la entrada de $10$ a $100$ vehículos/pasajeros, pero de ahí en más el porcentaje sigue siendo casi igual de alto.
+
+Planteamos entonces un nuevo modelo que pueda resolver estas limitaciones, tratando de mantener la minimización de la función objetivo. Como seguimos pensando dentro de un modelo de flujo de costo mínimo, queremos que los viajes más eficientes tengan menor costo, es decir que tengan un menor ratio. Para esto proponemos un nuevo modelo que tiene en cuenta el costo que significa para un taxista recorrer muchos kilómetros hasta su pasajero, para luego hacer un viaje excesivamente corto en comparación.
+
+Definimos un nuevo costo(*) $c_{ij} = \frac{d_{ij}}{d_t}$. De esta manera tratamos de minimizar $d_{ij}$ para que los pasajeros no tengan que esperar tanto por sus taxis (a nivel global), y a la vez intentar que los taxistas realicen viajes más eficientes.
+
+Creamos un nuevo método de la clase $\texttt{BatchingSolver}$, que lo único diferente que tiene son los nuevos costos (los ratios), que debemos multiplicar por un múltiplo de 10 elevado, para perder la menor cantidad de decimales posibles en su redondeo a $\texttt{int64 t}$ (elegimos $1000$). 
+
+Luego, para calcular el valor de la función objetivo podemos encontrar el $d_{ij}$ de cada par de taxi, pasajero asignado como solución (la solución la encontramos con la misma lógica del flujo de costo mínimo, con la misma herramienta de OR-Tools).
+
+Para el archivo $\texttt{small 1}$ el nuevo modelo arrojó un valor para la función objetivo de 33, que se encuentra entre el valor del método *greedy* y *batching*. Esto era esperable ya que el modelo nuevo sigue tomando una decisión global, por lo que debería dar mejor resultado que el *greedy*. Pero también al cambiar la función de costos, reemplazando  $\frac{d_{ij}}{d_t}$, ya no se minimiza la función objetivo.
+
+Luego de la experimentación encontramos que el nuevo modelo alternativo logra reducir la cantidad de viajes ineficientes de manera significativa en la mayoría de las instancias, cuando el $n$ es lo suficientemente grande. Los nuevos porcentajes de ineficiencia son $\%_{10} = 56$, $\%_{100} = 26.5$, $\%_{250} = 17.96$ y $\%_{1500} = 16.94$. El nuevo porcentaje de viajes eficientes e ineficientes queda así:
+
+
+```{r,fig.align = "center"}
+
+par(mfrow = c(1,2))
+par(mar = c(2, 2, 2, 2) + 0.1)
+
+ineficiencia <- sum(57.8, 38.0, 37.7, 35.54)/4
+eficiencia <- 100-ineficiencia
+labels <- c("ineficiencia = 42.26%", "eficiencia = 57.74%")
+
+pie(rbind(ineficiencia,eficiencia), labels="", col=c(h4[10], h3[1]), main="% de viajes eficientes/ineficientes con batching", cex = 0.5, cex.main = 0.7)
+
+
+
+
+ineficiencia2 <- sum(56, 26.5, 17.96, 16.94)/4
+eficiencia2 <- 100-ineficiencia2
+labels2 <- c("ineficiencia = 29.35%", "eficiencia = 70.65")
+pie(rbind(ineficiencia2,eficiencia2), labels=labels2, col=c(h4[10], h3[1]), main="% de viajes eficientes/ineficientes con alt", cex = 0.5, cex.main = 0.7)
+
+par(mfrow = c(1,1))
+```
+
+
+A cambio de esta mejor en la eficiencia perdimos la capacidad de minimizar efectivamente el valor de la función objetivo. En líneas generales con entradas lo suficientemente grandes sigue siendo menor que con el método de *greedy*, pero es mucho peor que con el *batching* original:
+
+```{r,fig.align = "center"}
+colors3 <- c(h4[10], h5[7], h2[10])
+small_1 <- csv[1:10, ]
+medium_1 <- csv[11:20, ]
+large_1 <- csv[21:30, ]
+xl_1 <- csv[31:40, ]
+
+csv_alt <-read.csv("gap_alternativa.csv", header = TRUE, sep=",")
+csv_alt <- csv_alt[complete.cases(csv_alt), ]
+small_alt <- csv_alt[1:10, ]
+medium_alt <- csv_alt[11:20, ]
+large_alt <- csv_alt[21:29, ]
+
+xl_alt <- csv_alt[30:38, ]
+
+Tamanios <- c("small", "medium", "large", "xl")
+Promedios_greedy <- c(mean(small_1$f_obj.greedy), 
+               mean(medium_1$f_obj.greedy), 
+               mean(large_1$f_obj.greedy), 
+               mean(xl_1$f_obj.greedy))
+
+fobj_greedy_prom <- data.frame(Tamanios, Promedios_greedy)
+fobj_greedy_prom <- fobj_greedy_prom[c(1:4),]
+
+Promedios_mcf <- c(mean(small_1$f_obj.mcf),
+                   mean(medium_1$f_obj.mcf),
+                   mean(large_1$f_obj.mcf),
+                   mean(xl_1$f_obj.mcf))
+
+fobj_mcf_prom <- data.frame(Tamanios, Promedios_mcf)
+
+Promedios_alt <- c(mean(small_alt$f_obj.modelo, na.omit=TRUE),
+                   mean(medium_alt$f_obj.modelo, na.omit=TRUE),
+                   mean(large_alt$f_obj.modelo, nan.omit=TRUE),
+                   mean(xl_alt$f_obj.modelo, nan.omit=TRUE))
+
+fobj_alt_prom <- data.frame(Tamanios, Promedios_alt)
+
+
+
+barplot_data <- rbind(fobj_greedy_prom$Promedios_greedy, fobj_alt_prom$Promedios_alt)
+barplot_data2 <- rbind(barplot_data, fobj_mcf_prom$Promedios_mcf)
+
+
+
+# Set the height of the plotting device
+options(repr.plot.height = 5)
+
+barplot(barplot_data2, beside = TRUE, col =rev(wes_palette("Zissou1", 3, type = "continuous")),
+        names.arg = Tamanios, legend.text = TRUE,
+        xlab = "tamaño de instancia", ylab = "valor promedio (en km)",
+        main = "Valor promedio de la función objetivo",
+        ylim = c(0, 1.2 * max(barplot_data)), cex.lab=0.8, cex.axis=0.9, cex.main = 1.1)
+
+legend("topleft", legend = c("greedy", "alternativo" , "batching"), col = rev(wes_palette("Zissou1", 3, type = "continuous")), lwd = 2, cex=0.7)
+
+```
+
+*Consideraciones: otra posibilidad que barajamos fue tener en cuenta el precio de cada viaje, y cuál era la relación de beneficio para los viajes según cuanto demandaba llegar hasta el pasajero. Al final decidimos no hacerlo porque nos pareció que también se podía medir de la forma propuesta, considerando más la 'pérdida de tiempo' que de dinero por parte del conductor. Además, no sería tan sencillo definir que constituye un viaje 'eficiente', ya que deberíamos definir primero cuál es un precio aceptable por kilómetro.*
+
+(*) Muchos archivos tenían valores de $d_t$ en 0 o muy cercanos, lo que resultaba en un ratio infinito. De esta manera nos era imposible calcular la ineficiencia del modelo, por lo que decidimos que cuando eso sucediera, el valor de $d_t$ pasaría a ser igual a $d_{ij}$, de manera que el ratio fuera 1, es decir, no lo consideramos ni eficiente ni ineficiente, y buscamos alterar los resultados lo menos posible. Esta modificación también tiene sentido si pensamos que lo que era ilógico es que $d_t$, la distancia del viaje, sea cero.
