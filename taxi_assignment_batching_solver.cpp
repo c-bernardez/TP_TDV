@@ -99,15 +99,6 @@ void BatchingSolver::solve() {
     
     if (status == operations_research::MinCostFlow::OPTIMAL) {
         this ->_objective_value = static_cast<double>(min_cost_flow.OptimalCost())/n; //Lo guardamos en el valor objetivo
-        // LOG(INFO) << std::endl << "Minimum cost flow: " << static_cast<double>(min_cost_flow.OptimalCost())/n;
-        // LOG(INFO) << "";
-        // LOG(INFO) << " Arc   Flow / Capacity  Cost";
-        // for (std::size_t i = 0; i < min_cost_flow.NumArcs(); ++i) {
-        // double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/n;
-        // LOG(INFO) << min_cost_flow.Tail(i) << " -> " << min_cost_flow.Head(i)
-        //             << "  " << min_cost_flow.Flow(i) << "  / "
-        //             << min_cost_flow.Capacity(i) << "       " << cost;
-        // }
         for (int i = 0; i < min_cost_flow.NumArcs(); ++i) {
             double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/10; //dividimos por el 10 que habiamos multiplicado antes, para volver a los valores decimales originales
             if(cost!=0){
@@ -174,7 +165,7 @@ void BatchingSolver::solve_alternativa() {
             }
             unit_costs[x] = ratio * 1000; 
             //consideramos al costo como un ratio entre la distancia recorrida hasta el pasajero y la distancia del viaje en sí. Si el ratio es menor a 1, la distancia recorrida hasta el pasajero es menor que la del viaje total, y por ende es más "util" para el taxista. Así, seguimos buscando minimizar costos, solo que ahora minimizamos los ratios.
-            //lo multiplicamos por 1000 para pasarlo a entero sin que algun costo nos quede en 0 la redondear
+            //lo multiplicamos por 1000 para pasarlo a entero sin que algun costo nos quede en 0 al redondear
             x++;
         }
     }
@@ -218,7 +209,6 @@ void BatchingSolver::solve_alternativa() {
             //dividimos por el 1000 multiplicado anteriormente para obtener los costos verdaderos (los ratios son doubles)
             if(cost!=0){
                 solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i)-n); //quitamos el n
-                //this ->_objective_value += cost * (this->_instance).pax_trip_dist[min_cost_flow.Head(i)-n]; //habiendo calculado los costos como dij/dj, podemos recuperar los dij que nos interesan para el valor del a funcion objetivo si hacemos costo*dj (dj es la distancia del viaje del pasajero j, una vez sea recogido por el taxi)
             }
         }
         
@@ -229,7 +219,6 @@ void BatchingSolver::solve_alternativa() {
     }
 
     this ->_solution = solucion;
-    //this->_objective_value = std::trunc(this->_objective_value*10)/10; //truncamos el valor de la funcion objetivo a un lugar decimal
     for(int i=0; i<(this->_instance).n; i++){
         int j = (this->_solution).getAssignedPax(i);
         this->_objective_value += (this->_instance).dist[i][j];

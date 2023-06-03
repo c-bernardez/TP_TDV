@@ -1,14 +1,14 @@
 #include "taxi_assignment_instance.h"
 
 void split(std::string &str, char &delim, std::vector<std::string> &out) {
-            // create a stream from the string  
-            std::stringstream s(str);  
-              
-            std::string s2;  
-            while (std::getline(s, s2, delim) )  
-            {  
-                out.push_back(s2); // store the string in s2  
-            } 
+        // create a stream from the string  
+        std::stringstream s(str);  
+            
+        std::string s2;  
+        while (std::getline(s, s2, delim) )  
+        {  
+            out.push_back(s2); // store the string in s2  
+        } 
 }
 
 TaxiAssignmentInstance::TaxiAssignmentInstance() {}
@@ -40,7 +40,6 @@ void TaxiAssignmentInstance::ReadFromFile(std::string filename) {
 
         // Assign the latlong
         this->taxi_position[i] = std::make_pair<double, double>(std::stod(elems[0]), std::stod(elems[1]));
-        //std::cout << this->taxi_position[i].first << " " << this->taxi_position[i].second << std::endl;
     }
 
     // Read passenger information.

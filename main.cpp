@@ -191,7 +191,6 @@ int main(int argc, char** argv) {
         }
 
         else{
-            //aclaración = hay
             TaxiAssignmentInstance instance(filePath);
             BatchingSolver solver_nuevo(instance); 
             solver_nuevo.solve_alternativa(); 
