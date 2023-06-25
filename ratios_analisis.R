@@ -17,7 +17,7 @@ xl <- ratios[3601:8600, ]
 xl_filtered <- subset(xl, is.finite(ratio))
 
 
-
+print("ineficientes modelo 1: small, medium, large, xl")
 ineficientes_small <- sum(small_filtered$ratio > 1)
 cantidad_small <- nrow(small_filtered)
 print((ineficientes_small / cantidad_small) * 100)
@@ -35,11 +35,15 @@ cantidad_xl <- nrow(xl_filtered)
 print((ineficientes_xl / cantidad_xl) * 100)
 
 
+
+
 small_2 <- ratios2[1:100, ]
 medium_2 <- ratios2[101:1110, ]
 large_2 <- ratios2[1101:3600, ]
 xl_2 <- ratios2[3601:8600, ]
 
+
+print("ineficientes modelo alternativo: small, medium, large, xl")
 ineficientes_small_2 <- sum(small_2$ratio > 1)
 cantidad_small_2 <- nrow(small_2)
 print((ineficientes_small_2 / cantidad_small_2) * 100)

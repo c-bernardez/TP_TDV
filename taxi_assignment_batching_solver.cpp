@@ -30,24 +30,15 @@ void BatchingSolver::solve() {
     //start_nodes = taxis, size = n*n
     int64_t n2 = static_cast<int64_t>(n);
     std::vector<int64_t> start_nodes = std::vector<int64_t>(n*n, 0);
-    int64_t x = 0;
     for(int i=0; i<start_nodes.size(); i++){
-        start_nodes[i] = x;
-        if(i!=0 && i%n2 == n2-1){
-            x++;
-        }
+        start_nodes[i] = i/n2;
     }
     
     //end_nodes = pasajeros, size = n*n
     std::vector<int64_t> end_nodes = std::vector<int64_t>(n*n, 0);
-    x = 0;
-    for(int64_t i=0; i<end_nodes.size(); i++){
-        end_nodes[i] = x+n2; //le sumamos n a los numeros de los pasajeros para poder diferenciarlos de los taxistas
-        x++;
-        if(x>=n){
-            x=0;
-        }
-    }
+    for (int i = 0; i < end_nodes.size(); i++) {
+        end_nodes[i] = (i % n) + n;
+    }  
 
     //capacities = capacidades, size = n*n
     //en nuestro modelo, la capacidad de cada arista es 1. si interpretamos al flujo como la cantidad de taxis, queda claro que solo uno a la vez pude ir a buscar a un pasajero
@@ -55,7 +46,7 @@ void BatchingSolver::solve() {
     
     //unit_cost = distancias = n*n
     std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
-    x=0;
+    int64_t x =0;
     for(int64_t i=0; i<distancias.size(); i++){
         for(int64_t j=0; j<distancias[i].size(); j++){
             unit_costs[x] = distancias[i][j]*10; //multiplicamos por 10 para convertir a entero sin redondear
@@ -98,15 +89,17 @@ void BatchingSolver::solve() {
 
     
     if (status == operations_research::MinCostFlow::OPTIMAL) {
-        this ->_objective_value = static_cast<double>(min_cost_flow.OptimalCost())/n; //Lo guardamos en el valor objetivo
+        this ->_objective_value = static_cast<double>(min_cost_flow.OptimalCost())/10; //Lo guardamos en el valor objetivo, dividimos por 10 para quitar el multiplicado de antes
         for (int i = 0; i < min_cost_flow.NumArcs(); ++i) {
-            double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/10; //dividimos por el 10 que habiamos multiplicado antes, para volver a los valores decimales originales
-            if(cost!=0){
+            // double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/10; 
+            //dividimos por el 10 que habiamos multiplicado antes, para volver a los valores decimales originales
+            if(min_cost_flow.Flow(i)==1){
                 solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i)-n); //le quitamos el n a los pasajeros sumado anteriormente, para que queden los numeros originales correspondientes (y podamos realizar la asignacion)
             }
         }
         
     } else {
+        this->_solution_status = 1;
         LOG(INFO) << "Solving the min cost flow problem failed. Solver status: "
                 << status;
     }
@@ -124,29 +117,20 @@ void BatchingSolver::solve_alternativa() {
 
     int64_t n2 = static_cast<int64_t>(n);
     std::vector<int64_t> start_nodes = std::vector<int64_t>(n*n, 0);
-    int64_t x = 0;
     for(int i=0; i<start_nodes.size(); i++){
-        start_nodes[i] = x;
-        if(i!=0 && i%n2 == n2-1){
-            x++;
-        }
+        start_nodes[i] = i/n2;
     }
 
     std::vector<int64_t> end_nodes = std::vector<int64_t>(n*n, 0);
-    x = 0;
-    for(int64_t i=0; i<end_nodes.size(); i++){
-        end_nodes[i] = x+n2;
-        x++;
-        if(x>=n){
-            x=0;
-        }
-    }
+    for (int i = 0; i < end_nodes.size(); i++) {
+        end_nodes[i] = (i % n) + n;
+    } 
 
     std::vector<int64_t> capacities = std::vector<int64_t>(n*n, 1);
     
     //diferente a la implementacion anterior
     std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
-    x=0;
+    int64_t x =0;
     for(int64_t i=0; i<distancias.size(); i++){
         for(int64_t j=0; j<distancias[i].size(); j++){
 
@@ -154,7 +138,7 @@ void BatchingSolver::solve_alternativa() {
             double d_t = (this->_instance).pax_trip_dist[j];
             double ratio = d_ij/d_t;
 
-            if(ratio == std::numeric_limits<double>::infinity()){
+            if(std::isinf(ratio)){
                 d_t = d_ij; //en caso de que el ratio se vaya a infinito porque d_t es casi cero, decidimos que d_t = d_ij para que el ratio sea 1 y no sea ni eficiente ni ineficiente
                 ratio = 1;
             }
@@ -205,15 +189,16 @@ void BatchingSolver::solve_alternativa() {
     if (status == operations_research::MinCostFlow::OPTIMAL) {
         this ->_objective_value = 0;
         for (int i = 0; i < min_cost_flow.NumArcs(); ++i) {
-            double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/1000;
+            // double cost = static_cast<double>(min_cost_flow.Flow(i) * min_cost_flow.UnitCost(i))/1000;
             //dividimos por el 1000 multiplicado anteriormente para obtener los costos verdaderos (los ratios son doubles)
-            if(cost!=0){
+            if(min_cost_flow.Flow(i)==1){
                 solucion.assign(min_cost_flow.Tail(i),min_cost_flow.Head(i)-n); //quitamos el n
             }
         }
         
         
     } else {
+        this->_solution_status = 1;
         LOG(INFO) << "Solving the min cost flow problem failed. Solver status: "
                 << status;
     }

@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
                 d_ij = instance.dist[i][j];
                 d_t = instance.pax_trip_dist[j];
                 ratio = (d_ij/d_t);
-                if(ratio == std::numeric_limits<double>::infinity()){
+                if(std::isinf(ratio)){
                     d_t = d_ij;
                     ratio = 1;
                 }

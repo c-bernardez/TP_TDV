@@ -31,7 +31,16 @@ void GreedySolver::solve() {
                 taxi = i;
             }
         }
-        solucion.assign(taxi, j);
+
+        if (minimo == INT_MAX) {
+            // No valid assignment found for the current passenger
+            this->_solution_status = 1;
+            break; // Exit the loop
+        }
+        else{
+            solucion.assign(taxi, j);
+        }
+        
     }
     
     auto stop = std::chrono::high_resolution_clock::now();
