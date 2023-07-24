@@ -246,7 +246,7 @@ kable(data, row.names = FALSE)
 ## Minimización de la distancia máxima
 Teníamos la hipótesis de que el modelo propuesto, a pesar de minimizar la distancia total a recorrer por los conductores hasta sus pasajeros asignados, podría derivar en que para uno o algunos taxis, la distancia fuera significativamente mayor que con el modelo actualmente en uso.\ 
 
-Por eso computamos como tercer métrica a la mayor distancia recorrrida por un taxi de la asignación hasta su pasajero con ambos métodos. Sin embargo, como se ve en el gráfico, ocurrió contrario.\
+Por eso computamos como tercer métrica a la mayor distancia recorrida por un taxi de la asignación hasta su pasajero con ambos métodos. Sin embargo, como se ve en el gráfico, ocurrió contrario.\
 
 
 ```{r,fig.align = "center"}
@@ -327,18 +327,31 @@ Nuestro modelo propuesto cuenta con ciertas limitaciones. En particular, que muc
 
 Consideramos que un viaje es 'eficiente' si la distancia del viaje es *al menos* tan larga como la distancia que el conductor tiene que recorrer para recoger a su pasajero, es decir, si $d_{ij} \leq d_{j}$. O lo que es lo mismo, si el ratio $\frac{d_{ij}}{d_j} \leq 1$. ($d_{ij}$ es la distancia desde el taxi $i$ hasta el pasajero $j$, y $d_j$ es la distancia del viaje en sí mismo)
 
-```{r,fig.align = "center", fig.height=3, fig.width=4}
-par(mar = c(2, 2, 2, 2) + 0.1)
-colors2 <- c(h1[1], h1[4])
+```{r}
+  
+eficiencia_10 <- 57.00
+eficiencia_100 <- 37.50
+eficiencia_250 <- 37.37
+eficiencia_1000 <- 34.74
 
-ineficiencia <- sum(57, 37.5, 37.37, 34.74)/4
-eficiencia <- 100-ineficiencia
-labels <- c("ineficiencia = 42.26%", "eficiencia = 57.74%")
-pie(rbind(ineficiencia,eficiencia), labels=labels, col=c(h4[10], h3[1]), main="Porcentaje de viajes eficientes e ineficientes", cex.lab=0.8, cex.axis=0.5, cex.main = 0.9)
+eficiencia_promedio <-sum(57.00, 37.50, 37.37, 34.74)/4
+# Create a data frame with three columns and six rows
+data <- data.frame(
+  tamano_instancia = c("", "small", "medium", "large", "xl", "promedio"),
+  eficiencia_original= c(1, eficiencia_10, eficiencia_100, eficiencia_250, eficiencia_1000, eficiencia_promedio)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
+
+data$eficiencia_original <- paste0(sprintf("%.2f", data$eficiencia_original),"%")
+# Use knitr to generate a table
+kable(data, row.names = FALSE)
 ```
 
-Como evidencia el gráfico, con el modelo actual hay una cantidad muy elevada de viajes que no resultan eficientes. También notamos que el tamaño del *batching* no es tan relevante, ya que para cada tamaño de instancia $n$ evaluadas el porcentaje de viajes ineficientes (ratios mayores a 1) son $\%_{10} = 57$, $\%_{100} = 37.5$, $\%_{250} = 37.37$ y $\%_{1500} = 34.74$. El cambio más notorio se da cuando agrandamos la entrada de $10$ a $100$ vehículos/pasajeros, pero de ahí en más el porcentaje sigue siendo casi igual de alto.
 
+Con el modelo actual hay una cantidad muy elevada de viajes que no resultan eficientes, exactamente un 41.65%. Notamos también que el tamaño del *batching* no es tan relevante, ya que para cada tamaño de instancia $n$ evaluadas el porcentaje de viajes ineficientes (ratios mayores a 1) son $\%_{10} = 57$, $\%_{100} = 37.5$,  $\%_{250} = 37.37$ y $\%_{1500} = 34.74$. 
+  
+El cambio más notorio se da cuando agrandamos la entrada de $10$ a $100$ vehículos/pasajeros, pero de ahí en más el porcentaje sigue siendo casi igual de alto.
 
 Planteamos entonces un nuevo modelo que pueda resolver estas limitaciones, tratando de mantener la minimización de la función objetivo. Como seguimos pensando dentro de un modelo de flujo de costo mínimo, queremos que los viajes más eficientes tengan menor costo, es decir que tengan un menor ratio. Para esto proponemos un nuevo modelo que tiene en cuenta el costo que significa para un taxista recorrer muchos kilómetros hasta su pasajero, para luego hacer un viaje excesivamente corto en comparación.
 
@@ -350,45 +363,52 @@ Luego, para calcular el valor de la función objetivo podemos encontrar el $d_{i
 
 Para el archivo $\texttt{small 1}$ el nuevo modelo arrojó un valor para la función objetivo de 33, que se encuentra entre el valor del método *greedy* y *batching*. Esto era esperable ya que el modelo nuevo sigue tomando una decisión global, por lo que debería dar mejor resultado que el *greedy*. Pero también al cambiar la función de costos, reemplazando  $\frac{d_{ij}}{d_j}$, ya no se minimiza la función objetivo.
 
-Luego de la experimentación encontramos que el nuevo modelo alternativo logra reducir la cantidad de viajes ineficientes de manera significativa en la mayoría de las instancias, cuando el $n$ es lo suficientemente grande. Los nuevos porcentajes de ineficiencia son $\%_{10} = 56$, $\%_{100} = 26.73$, $\%_{250} = 20.04$ y $\%_{1500} = 16.84$. El nuevo porcentaje de viajes eficientes e ineficientes queda así:
+Luego de la experimentación encontramos que el nuevo modelo alternativo logra reducir la cantidad de viajes ineficientes de manera significativa en la mayoría de las instancias, cuando el $n$ es lo suficientemente grande. Los nuevos porcentajes de ineficiencia son $\%_{10} = 56$, $\%_{100} = 26.73$, $\%_{250} = 20.04$ y $\%_{1500} = 16.84$. \
 
+El nuevo porcentaje de viajes eficientes e ineficientes queda así:
 
-```{r,fig.align = "center"}
+```{r}
+  
+eficiencia_10_alt <- 56.00
+eficiencia_100_alt <- 26.73
+eficiencia_250_alt <- 20.04
+eficiencia_1000_alt <- 16.84
 
-par(mfrow = c(1,2))
-par(mar = c(2, 2, 2, 2) + 0.1)
+mejora_10 <- (eficiencia_10-eficiencia_10_alt)/eficiencia_10*100
+mejora_100 <- (eficiencia_100-eficiencia_100_alt)/eficiencia_100*100
+mejora_250 <- (eficiencia_250-eficiencia_250_alt)/eficiencia_250*100
+mejora_1000 <- (eficiencia_1000-eficiencia_1000_alt)/eficiencia_1000*100
 
-ineficiencia <- sum(57.8, 38.0, 37.7, 35.54)/4
-eficiencia <- 100-ineficiencia
-labels <- c("ineficiencia = 42.26%", "eficiencia = 57.74%")
+mejora_promedio = (mejora_10 + mejora_250 + mejora_100 + mejora_1000)/4
 
-pie(rbind(ineficiencia,eficiencia), labels="", col=c(h4[10], h3[1]), main="% de viajes eficientes/ineficientes con batching", cex = 0.5, cex.main = 0.7)
+eficiencia_promedio_alt <-sum( 56.00, 26.73, 20.04, 16.84)/4
+# Create a data frame with three columns and six rows
+data <- data.frame(
+  tamano_instancia = c("", "small", "medium", "large", "xl", "promedio"),
+  eficiencia_alt= c(1, eficiencia_10_alt, eficiencia_100_alt, eficiencia_250_alt, eficiencia_1000_alt, eficiencia_promedio_alt),
+  mejora_relativa = c(1, mejora_10, mejora_100, mejora_250, mejora_1000 , mejora_promedio)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
 
-
-
-
-ineficiencia2 <- sum(56, 26.73, 20.04, 16.84)/4
-eficiencia2 <- 100-ineficiencia2
-labels2 <- c("ineficiencia = 29.35%", "eficiencia = 70.65")
-pie(rbind(ineficiencia2,eficiencia2), labels=labels2, col=c(h4[10], h3[1]), main="% de viajes eficientes/ineficientes con alt", cex = 0.5, cex.main = 0.7)
-
-par(mfrow = c(1,1))
+data$eficiencia_alt <- paste0(sprintf("%.2f", data$eficiencia_alt), "%")
+data$mejora_relativa <- paste0(sprintf("%.2f", data$mejora_relativa), "%")
+# Use knitr to generate a table
+kable(data, row.names = FALSE)
 ```
-
-
-A cambio de esta mejor en la eficiencia obtenemos un valor de la función objetivo (una distnacia total) más grande que para el *batching*, pero aún así es una alternativa decididamente mejor que el método *greedy*. Además tiene el plus agregado de que no solo logra minimizar la distancia total, sino que también puede lograr que los taxistas realicen viajes más eficientes.\
-
-Era de esperarse que el método alternativo propuesto fuera peor que el *batching* porque ya no busca minimizar $d_{ij}$, sino $d_{j}$, es decir que lo que minimizamos difiere de nuestra función objetivo. Sin embargo, también es lógico que no resulte peor que el *greedy* porque sigue siendo un algoritmo exacto de minimización en vez de una heurística, y el ratio minimizado guarda una relación con lo que se minimiza en la función objetivo.
+Observamos una mejora significativa de la eficiencia de los viajes, especialmente para archivos más grandes (para instancias *small* la mejora relativa es de apenas un 1.75%, ya que la eficiencia pasa de 57 a 56).
 
 ```{r,fig.align = "center"}
+csv_alt <-read.csv("gap_alternativa.csv", header = TRUE, sep=",")
+csv_alt <- csv_alt[complete.cases(csv_alt), ]
 colors3 <- c(h4[10], h5[7], h2[10])
 small_1 <- csv[1:10, ]
 medium_1 <- csv[11:20, ]
 large_1 <- csv[21:30, ]
 xl_1 <- csv[31:40, ]
 
-csv_alt <-read.csv("gap_alternativa.csv", header = TRUE, sep=",")
-csv_alt <- csv_alt[complete.cases(csv_alt), ]
+
+
 small_alt <- csv_alt[1:10, ]
 medium_alt <- csv_alt[11:20, ]
 large_alt <- csv_alt[21:29, ]
@@ -437,6 +457,32 @@ barplot(barplot_data2, beside = TRUE, col =rev(wes_palette("Zissou1", 3, type = 
 legend("topleft", legend = c("greedy", "alternativo" , "batching"), col = rev(wes_palette("Zissou1", 3, type = "continuous")), lwd = 2, cex=0.7)
 
 ```
+
+A cambio de esta mejor en la eficiencia obtenemos un valor de la función objetivo (una distancia total) más grande que para el *batching*, pero aún así es una alternativa decididamente mejor que el método *greedy*, en especial para instancias con mayor cantidades de taxis y pasajeros. Además tiene el plus agregado de que no solo logra minimizar la distancia total, sino que también puede lograr que los taxistas realicen viajes más eficientes.
+
+Era de esperarse que el método alternativo propuesto fuera peor que el *batching* porque ya no busca minimizar $d_{ij}$, sino $d_{j}$, es decir que lo que minimizamos difiere de nuestra función objetivo.
+
+Resulta interesante que en todos los casos análisis, resulta mejor que el *greedy*. Sin embargo, en esta instancia solo estamos considerando los promedios obtenidos y no el valor de la función objetivo para cada instancia. A continuación presentamos una comparación del valor de la función objetivo (distancia total) obtenida con los tres métodos (*greedy*, alternativo y *batching*) para todas las instancias de datos analizadas.\
+
+```{r}
+
+data <- data.frame(
+  tamano_instancia = c("", rep("small", 10), rep("medium", 10), rep("large", 10), rep("xl", 10)),
+  f_obj.greedy = c("",csv$f_obj.greedy),
+  f_obj.modelo = c("",csv_alt$f_obj.modelo),
+  f_obj.mcf = c("",csv$f_obj.mcf)
+)
+colnames(data)[1] <- ""
+data <- data[-1, ]
+# Print the resulting table
+kable(data, row.names = FALSE)
+```
+
+Solo encontramos un caso en el que no se cumple que el *alternativo* sea mejor que el *greedy* para los datos analizados (en la fila 4, el *greedy* encuentra una solución 0.2 km más corta), lo que nos lleva a concluir que no siempre va a suceder que el método alternativo de mejor que la heurística. Aunque, a juzgar por la gran cantidad de datos analizados, sí puede que sea el caso en la mayoría de las instancias. Haría falta probar con más instancias y de tamaños más variados que los datos ya analizados, pero esto excede el alcance del trabajo.
+
+
+
+
 
 *Consideraciones: otra posibilidad que barajamos fue tener en cuenta el precio de cada viaje, y cuál era la relación de beneficio para los viajes según cuanto demandaba llegar hasta el pasajero. Al final decidimos no hacerlo porque nos pareció que también se podía medir de la forma propuesta, considerando más la 'pérdida de tiempo' que de dinero por parte del conductor. Además, no sería tan sencillo definir que constituye un viaje 'eficiente', ya que deberíamos definir primero cuál es un precio aceptable por kilómetro.*
 

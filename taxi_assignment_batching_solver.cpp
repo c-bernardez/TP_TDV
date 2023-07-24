@@ -17,47 +17,50 @@ void BatchingSolver::setInstance(TaxiAssignmentInstance &instance) {
     this->_instance = instance;
 }
 
-
-void BatchingSolver::solve() {
+std::vector<int64_t> BatchingSolver::create_startNodes (){
     int n = (this->_instance).n;
-    std::vector<std::vector<double>> distancias = (this->_instance).dist; 
 
-    TaxiAssignmentSolution solucion((this->_instance).n);
-
-    // Instantiate a SimpleMinCostFlow solver.
-    operations_research::SimpleMinCostFlow min_cost_flow;
-    
-    //start_nodes = taxis, size = n*n
     int64_t n2 = static_cast<int64_t>(n);
     std::vector<int64_t> start_nodes = std::vector<int64_t>(n*n, 0);
     for(int i=0; i<start_nodes.size(); i++){
         start_nodes[i] = i/n2;
     }
-    
-    //end_nodes = pasajeros, size = n*n
+
+    return start_nodes;
+}
+
+std::vector<int64_t> BatchingSolver::create_endNodes (){
+    int n = (this->_instance).n;
+
     std::vector<int64_t> end_nodes = std::vector<int64_t>(n*n, 0);
     for (int i = 0; i < end_nodes.size(); i++) {
         end_nodes[i] = (i % n) + n;
     }  
 
+    return end_nodes;
+}
+
+std::vector<int64_t> BatchingSolver::create_capacities (){
+    int n = (this->_instance).n;
+
     //capacities = capacidades, size = n*n
     //en nuestro modelo, la capacidad de cada arista es 1. si interpretamos al flujo como la cantidad de taxis, queda claro que solo uno a la vez pude ir a buscar a un pasajero
     std::vector<int64_t> capacities = std::vector<int64_t>(n*n, 1);
-    
-    //unit_cost = distancias = n*n
-    std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
-    int64_t x =0;
-    for(int64_t i=0; i<distancias.size(); i++){
-        for(int64_t j=0; j<distancias[i].size(); j++){
-            unit_costs[x] = distancias[i][j]*10; //multiplicamos por 10 para convertir a entero sin redondear
-            x++;
-        }
-    }
-    
 
+    std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
+
+    std::vector<int64_t> supplies = std::vector<int64_t>(n+n, 0);
+
+    return capacities;
+}
+
+std::vector<int64_t> BatchingSolver::create_supplies (){
+    int n = (this->_instance).n;
+
+    std::vector<int64_t> supplies = std::vector<int64_t>(n+n, 0);
     //supplies = imbalances, size = n+n
     //en nuestro modelo, los taxis pueden generar 1 unidad de flujo, y los pasajeros pueden captar 1 unidad
-    std::vector<int64_t> supplies = std::vector<int64_t>(n+n, 0);
+    
     for(int64_t i=0; i<supplies.size(); i++){
         if(i<supplies.size()/2){
             supplies[i] = 1; //imbalances de los taxis
@@ -66,6 +69,33 @@ void BatchingSolver::solve() {
             supplies[i] = -1; //imbalances de los pasajeros
         }
     }
+    return supplies;
+}
+
+
+void BatchingSolver::solve() {
+    int n = (this->_instance).n;
+    std::vector<std::vector<double>> distancias = (this->_instance).dist; 
+
+    std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
+    int64_t x =0;
+    for(int64_t i=0; i<distancias.size(); i++){
+        for(int64_t j=0; j<distancias[i].size(); j++){
+            unit_costs[x] = distancias[i][j]*10; //multiplicamos por 10 para convertir a entero sin redondear
+            x++;
+        }
+    }
+
+    TaxiAssignmentSolution solucion((this->_instance).n);
+
+    // Instantiate a SimpleMinCostFlow solver.
+    operations_research::SimpleMinCostFlow min_cost_flow;
+    
+
+    std::vector<int64_t> start_nodes = create_startNodes();
+    std::vector<int64_t> end_nodes = create_endNodes();
+    std::vector<int64_t> capacities = create_capacities();
+    std::vector<int64_t> supplies = create_supplies();
     
     // Add each arc.
     for (int i = 0; i < start_nodes.size(); ++i) {
@@ -115,18 +145,10 @@ void BatchingSolver::solve_alternativa() {
 
     operations_research::SimpleMinCostFlow min_cost_flow;
 
-    int64_t n2 = static_cast<int64_t>(n);
-    std::vector<int64_t> start_nodes = std::vector<int64_t>(n*n, 0);
-    for(int i=0; i<start_nodes.size(); i++){
-        start_nodes[i] = i/n2;
-    }
-
-    std::vector<int64_t> end_nodes = std::vector<int64_t>(n*n, 0);
-    for (int i = 0; i < end_nodes.size(); i++) {
-        end_nodes[i] = (i % n) + n;
-    } 
-
-    std::vector<int64_t> capacities = std::vector<int64_t>(n*n, 1);
+    std::vector<int64_t> start_nodes = create_startNodes();
+    std::vector<int64_t> end_nodes = create_endNodes();
+    std::vector<int64_t> capacities = create_capacities();
+    std::vector<int64_t> supplies = create_supplies(); 
     
     //diferente a la implementacion anterior
     std::vector<int64_t> unit_costs = std::vector<int64_t>(n*n, 0);
@@ -151,17 +173,6 @@ void BatchingSolver::solve_alternativa() {
             //consideramos al costo como un ratio entre la distancia recorrida hasta el pasajero y la distancia del viaje en sí. Si el ratio es menor a 1, la distancia recorrida hasta el pasajero es menor que la del viaje total, y por ende es más "util" para el taxista. Así, seguimos buscando minimizar costos, solo que ahora minimizamos los ratios.
             //lo multiplicamos por 1000 para pasarlo a entero sin que algun costo nos quede en 0 al redondear
             x++;
-        }
-    }
-    
-
-    std::vector<int64_t> supplies = std::vector<int64_t>(n+n, 0);
-    for(int64_t i=0; i<supplies.size(); i++){
-        if(i<supplies.size()/2){
-            supplies[i] = 1; 
-        }
-        else{
-            supplies[i] = -1; 
         }
     }
     

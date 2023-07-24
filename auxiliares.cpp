@@ -10,3 +10,6 @@ bool compareFilenames(const std::filesystem::directory_entry& a, const std::file
 bool compareFilenames2(const std::filesystem::directory_entry& a, const std::filesystem::directory_entry& b){
     return orden[a.path().filename().string()[0]] <  orden[b.path().filename().string()[0]];
 }
+
+
+            
